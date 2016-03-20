@@ -8,11 +8,25 @@
 
 #import "WePayViewController.h"
 #import "WXApiManager.h"
-@interface WePayViewController ()
+#import "WXApiRequestHandler.h"
+#import "PayResultController.h"
+@interface WePayViewController ()<WXApiManagerDelegate>
 
 @end
 
 @implementation WePayViewController
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // 添加微信支付代理
+    [WXApiManager sharedManager].delegate = self;
+}
+
+- (void)viewDidDisappear:(BOOL)animated
+{
+    [WXApiManager sharedManager].delegate = nil;
+}
+
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -34,6 +48,11 @@
     btn.backgroundColor=[UIColor redColor];
     [btn addTarget:self action:@selector(jumpToBizPay) forControlEvents:UIControlEventTouchUpInside];//sendPay:
     [self.view addSubview:btn];
+    
+    // 添加微信支付代理
+    [WXApiManager sharedManager].delegate = self;
+    
+
 }
 
 #pragma mark -- 跳转微信支付
@@ -75,11 +94,6 @@
             
             if (message.length > 0) {
                 [self showHUDComplete:message isCorrect:NO];
-            } else {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    PayResultController *resultVC = [[PayResultController alloc] init];
-                    [self.navigationController pushViewController:resultVC animated:YES];
-                });
             }
         };
     }];
@@ -110,16 +124,50 @@
         req.timeStamp  = stamp.intValue;
         req.package    = [params objectForKey:@"package"];
         req.sign       = [params objectForKey:@"sign"];
-        [WXApi sendReq:req];
+//        [WXApi sendReq:req];
         
         //        +(BOOL) sendAuthReq:(SendAuthReq*) req viewController : (UIViewController*) viewController delegate:(id<WXApiDelegate>) delegate;
         //        [WXApi sendAuthReq:req viewController:self delegate:self];
         //日志输出
-        NSLog(@"appid=%@\npartid=%@\nprepayid=%@\nnoncestr=%@\ntimestamp=%ld\npackage=%@\nsign=%@",[params objectForKey:@"appid"],req.partnerId,req.prepayId,req.nonceStr,(long)req.timeStamp,req.package,req.sign );
-        return @"";
+        
+        BOOL success = [WXApi sendReq:req];
+        
+        if (success) {
+            return @"";
+        } else return @"支付错误";
     } else {
         return @"支付错误";
     }
+}
+
+
+#pragma mark -- WXApiManager Delegate
+- (void)managerDidRecvPayResponse:(PayResp *)response
+{
+    //支付返回结果，实际支付结果需要去微信服务器端查询
+    NSString *strMsg = [NSString stringWithFormat:@"支付结果"];
+    
+    switch (response.errCode) {
+        case WXSuccess:
+        {
+            strMsg = @"支付结果：成功！";
+            NSLog(@"支付成功－PaySuccess，retcode = %d", response.errCode);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                PayResultController *resultVC = [[PayResultController alloc] init];
+                [self.navigationController pushViewController:resultVC animated:YES];
+            });
+        }
+            break;
+            
+        default:
+        {
+            strMsg = [NSString stringWithFormat:@"支付结果：失败！retcode = %d, retstr = %@", response.errCode,response.errStr];
+            NSLog(@"错误，retcode = %d, retstr = %@", response.errCode, response.errStr);
+            [self showAlertView:strMsg];
+        }
+            break;
+    }
+    
 }
 
 //- (NSString *)jumpToBizPay {
