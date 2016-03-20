@@ -2,8 +2,8 @@
 //  PayResultController.m
 //  VinuxPost
 //
-//  Created by MR-zhang on 15/8/26.
-//  Copyright (c) 2015年 Ricky. All rights reserved.
+//  Created by qsy on 15/8/26.
+//  Copyright (c) 2015年 qsy. All rights reserved.
 //
 
 #import "PayResultController.h"
